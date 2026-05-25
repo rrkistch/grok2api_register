@@ -1,0 +1,18 @@
+{
+    "run": {
+        "count": 50
+    },
+    "temp_mail_provider": "",
+    "temp_mail_api_base": "https://mail-api.example.com",
+    "temp_mail_admin_email": "",
+    "temp_mail_admin_password": "<your_admin_password>",
+    "temp_mail_domain": "mail.example.com",
+    "temp_mail_site_password": "",
+    "proxy": "",
+    "browser_proxy": "",
+    "api": {
+        "endpoint": "http://127.0.0.1:8000/admin/api/tokens",
+        "token": "",
+        "append": true
+    }
+}

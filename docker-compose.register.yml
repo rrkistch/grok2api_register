@@ -1,0 +1,105 @@
+services:
+  warp:
+    image: caomingjun/warp:latest
+    restart: unless-stopped
+    environment:
+      WARP_SLEEP: 2
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv4.conf.all.src_valid_mark=1
+    ports:
+      - "127.0.0.1:1080:1080"
+
+  privoxy:
+    image: ghcr.io/jiujiu532/privoxy-warp:latest
+    restart: unless-stopped
+    depends_on:
+      - warp
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    restart: unless-stopped
+    shm_size: 1gb
+    environment:
+      TZ: Asia/Shanghai
+      LOG_LEVEL: info
+
+  grok2api-init-config:
+    image: python:3.13-alpine
+    command: ["python3", "/scripts/init_proxy_config.py"]
+    volumes:
+      - ./data:/app/data
+      - ./scripts:/scripts:ro
+    restart: "no"
+
+  grok2api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: grok2api-register-antiban:latest
+    environment:
+      TZ: Asia/Shanghai
+      LOG_LEVEL: ${GROK2API_LOG_LEVEL:-INFO}
+      LOG_FILE_ENABLED: ${GROK2API_LOG_FILE_ENABLED:-true}
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8000
+      SERVER_WORKERS: 1
+      ACCOUNT_STORAGE: ${GROK2API_ACCOUNT_STORAGE:-local}
+      ACCOUNT_LOCAL_PATH: /app/data/accounts.db
+      GROK_APP_APP_KEY: ${GROK2API_APP_KEY:-change-this-admin-password}
+      GROK_APP_API_KEY: ${GROK2API_API_KEY:-}
+      GROK_FEATURES_TEMPORARY: ${GROK2API_TEMPORARY:-true}
+      GROK_FEATURES_MEMORY: ${GROK2API_MEMORY:-false}
+      GROK_FEATURES_STREAM: ${GROK2API_STREAM:-true}
+      GROK_FEATURES_THINKING: ${GROK2API_THINKING:-true}
+    ports:
+      - "${GROK2API_HOST_PORT:-8000}:8000"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    restart: unless-stopped
+    depends_on:
+      grok2api-init-config:
+        condition: service_completed_successfully
+      warp:
+        condition: service_started
+      privoxy:
+        condition: service_started
+      flaresolverr:
+        condition: service_started
+
+  console:
+    build:
+      context: .
+      dockerfile: apps/worker-runtime/Dockerfile
+    working_dir: /workspace
+    command: python /workspace/apps/console/app.py
+    environment:
+      GROK_REGISTER_SOURCE_DIR: /workspace
+      GROK_REGISTER_PYTHON: /usr/local/bin/python
+      GROK_REGISTER_CONSOLE_HOST: 0.0.0.0
+      GROK_REGISTER_CONSOLE_PORT: ${GROK_STACK_CONSOLE_PORT:-18600}
+      GROK_REGISTER_CONSOLE_MAX_CONCURRENT_TASKS: 1
+      GROK_REGISTER_DEFAULT_RUN_COUNT: ${GROK_REGISTER_DEFAULT_RUN_COUNT:-50}
+      GROK_REGISTER_DEFAULT_PROXY: ${GROK_REGISTER_DEFAULT_PROXY:-socks5://warp:1080}
+      GROK_REGISTER_DEFAULT_BROWSER_PROXY: ${GROK_REGISTER_DEFAULT_BROWSER_PROXY:-socks5://warp:1080}
+      GROK_REGISTER_DEFAULT_TEMP_MAIL_PROVIDER: ${GROK_REGISTER_DEFAULT_TEMP_MAIL_PROVIDER:-}
+      GROK_REGISTER_DEFAULT_TEMP_MAIL_API_BASE: ${GROK_REGISTER_DEFAULT_TEMP_MAIL_API_BASE:-}
+      GROK_REGISTER_DEFAULT_TEMP_MAIL_ADMIN_EMAIL: ${GROK_REGISTER_DEFAULT_TEMP_MAIL_ADMIN_EMAIL:-}
+      GROK_REGISTER_DEFAULT_TEMP_MAIL_ADMIN_PASSWORD: ${GROK_REGISTER_DEFAULT_TEMP_MAIL_ADMIN_PASSWORD:-}
+      GROK_REGISTER_DEFAULT_TEMP_MAIL_DOMAIN: ${GROK_REGISTER_DEFAULT_TEMP_MAIL_DOMAIN:-}
+      GROK_REGISTER_DEFAULT_TEMP_MAIL_SITE_PASSWORD: ${GROK_REGISTER_DEFAULT_TEMP_MAIL_SITE_PASSWORD:-}
+      GROK_REGISTER_DEFAULT_API_ENDPOINT: ${GROK_REGISTER_DEFAULT_API_ENDPOINT:-http://grok2api:8000/admin/api/tokens}
+      GROK_REGISTER_DEFAULT_API_TOKEN: ${GROK_REGISTER_DEFAULT_API_TOKEN:-change-this-admin-password}
+      GROK_REGISTER_DEFAULT_API_APPEND: ${GROK_REGISTER_DEFAULT_API_APPEND:-true}
+    ports:
+      - "${GROK_STACK_CONSOLE_PORT:-18600}:18600"
+    volumes:
+      - .:/workspace
+    restart: unless-stopped
+    depends_on:
+      - grok2api
+      - warp

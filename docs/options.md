@@ -1,0 +1,145 @@
+# 配置项说明
+
+下面只解释真正会影响业务的字段。
+
+## run.count
+
+本次任务最多尝试多少轮注册。
+
+- `50`：跑 50 轮后自动退出
+- `1`：做一次验证
+- 不建议在控制台里直接配无限循环
+
+## browser_proxy
+
+浏览器访问 `x.ai` 时使用的代理。
+
+什么时候要填：
+
+- 服务器直连 `x.ai` 不通
+- 直连能通，但 IP 容易被风控
+- 你已经有本地 WARP/代理桥接，希望浏览器固定从那个出口出去
+
+最常见写法：
+
+- `http://127.0.0.1:18118`
+- `socks5://127.0.0.1:1080`
+- `socks5://warp:1080`
+
+## proxy
+
+普通 HTTP 请求走的代理，主要给临时邮箱 API 用。
+
+它和 `browser_proxy` 不一定相同，但在大多数场景下建议保持一致，避免：
+
+- 浏览器从香港出口访问 `x.ai`
+- 邮箱 API 却从本机直连
+
+这种前后链路不一致会增加排障难度。
+
+## temp_mail_provider
+
+临时邮箱服务类型。
+
+可选值：
+
+- 留空：按 `temp_mail_api_base` 自动识别，识别不到就使用自定义 Temp Mail 契约
+- `duckmail`：使用 DuckMail 官方接口
+- `cloudmail`：使用 Cloud Mail 开放 API
+- `generic`：强制使用自定义 Temp Mail 契约
+
+如果 Cloud Mail 部署在你自己的域名下，建议明确填 `cloudmail`。
+
+## temp_mail_api_base
+
+临时邮箱服务的接口地址。
+
+示例：
+
+- `https://mail-api.example.com`
+- `https://api.duckmail.sbs`
+- `https://mail.example.com`
+
+执行器会调用它创建邮箱地址、列出邮件、读取邮件正文。
+
+如果你要自己实现这套接口，直接看 [temp-mail-api.md](temp-mail-api.md)。
+
+## temp_mail_admin_email
+
+Cloud Mail 管理员邮箱，用于调用 `/api/public/genToken` 生成身份令牌。
+
+只有 `temp_mail_provider=cloudmail` 时需要填写；自定义 Temp Mail 和 DuckMail 可以留空。
+
+## temp_mail_admin_password
+
+临时邮箱后台管理口令，用于创建新邮箱地址。
+
+如果你用的是自定义 Temp Mail，这个字段必填。
+
+如果你用的是 Cloud Mail：
+
+- 这里填写 Cloud Mail 管理员邮箱密码
+- 管理员邮箱本身填在 `temp_mail_admin_email`
+
+如果你用的是 DuckMail：
+
+- 公共域名场景下可以留空
+- 需要访问私有域名时再填 DuckMail API Key
+
+## temp_mail_domain
+
+注册时实际使用的邮箱域名后缀。
+
+例如：
+
+- `mail.example.com`
+
+这个字段很关键。就算邮箱 API 可用，如果这个域名本身被 `x.ai` 拒绝，流程也会卡在注册页。
+
+如果你用的是 DuckMail：
+
+- 可以显式填写你想用的域名
+- 也可以留空，执行器会自动从 DuckMail 域名列表里挑一个公开、已验证域名
+
+如果你用的是 Cloud Mail：
+
+- 必须填写你要创建账号的邮箱后缀，例如 `mail.example.com`
+
+## temp_mail_site_password
+
+有些临时邮箱 API 除了管理口令，还会要求站点级鉴权；如果你的接口没有这个要求，留空即可。
+
+## api.endpoint
+
+注册成功后用于接收 token 的管理接口。
+
+典型示例：
+
+- `http://127.0.0.1:8000/admin/api/tokens`
+- `http://grok2api:8000/admin/api/tokens`
+
+如果留空，任务仍然能注册，但不会自动入池。
+
+## api.token
+
+调用 sink 管理接口时的鉴权口令。
+
+## api.append
+
+决定推送 token 时是“保护存量后追加”，还是“直接覆盖”。
+
+- `true`：先读取线上已有 token，再把本次结果合并去重后回写。适合生产环境。
+- `false`：不读存量，直接用本次结果覆盖远端。只建议在测试环境里使用。
+
+## 系统默认配置 vs 任务覆盖
+
+两者不冲突，规则很简单：
+
+1. 系统默认配置是全局底板
+2. 新建任务时如果不展开高级设置，就直接继承系统默认值
+3. 任务里填写了某个覆盖字段，只有那个任务会改，不会回写系统默认配置
+
+所以更推荐的使用方式是：
+
+- 把稳定不变的东西填在系统默认配置
+- 只把这一次临时要变的参数填在任务高级设置

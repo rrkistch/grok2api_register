@@ -10,6 +10,42 @@
 
 <br>
 
+## 仓库模式
+
+这个仓库现在融合了两套能力：
+
+- `grok2api` 防封版本体：可单独作为 Grok OpenAI 兼容网关运行
+- `register stack`：批量注册执行器 + Web 控制台 + token 自动入池
+
+如果你只想跑 `grok2api`，继续用下面 README 里的原生 `docker-compose.yml` / `docker-compose.warp.yml` 即可。
+
+如果你想跑完整注册闭环，直接使用根目录新增的 `docker-compose.register.yml`：
+
+```bash
+cp .env.example .env
+docker compose -f docker-compose.register.yml up -d --build
+```
+
+启动后访问：
+
+- `http://<你的服务器IP>:18600`：注册控制台
+- `http://<你的服务器IP>:8000/admin`：`grok2api` 防封版后台
+
+注册控制台默认会把成功拿到的 `sso` 推送到：
+
+- `http://grok2api:8000/admin/api/tokens`
+
+批量注册相关文件位于：
+
+- `DrissionPage_example.py`
+- `email_register.py`
+- `apps/console`
+- `apps/worker-runtime`
+- `turnstilePatch`
+- `docs/quickstart.md`
+
+<br>
+
 Grok2API 是一个基于 **FastAPI** 构建的 Grok 网关，将 Grok Web 能力以 OpenAI 兼容 API 的方式对外提供。核心特性：
 
 - OpenAI 兼容接口：`/v1/models`、`/v1/chat/completions`、`/v1/responses`、`/v1/images/generations`、`/v1/images/edits`、`/v1/videos`、`/v1/videos/{video_id}`、`/v1/videos/{video_id}/content`
