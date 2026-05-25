@@ -27,7 +27,7 @@
 
 - 你想通过 Web 控制台批量注册
 - 注册成功后自动把 `sso` 推进内置 `grok2api`
-- 需要内置的 `warp + privoxy + flaresolverr` 防封链路
+- 需要内置的 `warp-proxy + privoxy + flaresolverr` 防封链路
 
 ### 1. 拉代码
 
@@ -64,7 +64,7 @@ docker compose -f docker-compose.register.yml up -d --build
 
 这套栈会启动：
 
-- `warp`
+- `warp-proxy`
 - `privoxy`
 - `flaresolverr`
 - `grok2api`

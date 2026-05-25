@@ -1,5 +1,5 @@
 services:
-  warp:
+  warp-proxy:
     image: caomingjun/warp:latest
     restart: unless-stopped
     environment:
@@ -17,7 +17,7 @@ services:
     image: ghcr.io/jiujiu532/privoxy-warp:latest
     restart: unless-stopped
     depends_on:
-      - warp
+      - warp-proxy
 
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
@@ -64,7 +64,7 @@ services:
     depends_on:
       grok2api-init-config:
         condition: service_completed_successfully
-      warp:
+      warp-proxy:
         condition: service_started
       privoxy:
         condition: service_started
@@ -84,8 +84,8 @@ services:
       GROK_REGISTER_CONSOLE_PORT: ${GROK_STACK_CONSOLE_PORT:-18600}
       GROK_REGISTER_CONSOLE_MAX_CONCURRENT_TASKS: 1
       GROK_REGISTER_DEFAULT_RUN_COUNT: ${GROK_REGISTER_DEFAULT_RUN_COUNT:-50}
-      GROK_REGISTER_DEFAULT_PROXY: ${GROK_REGISTER_DEFAULT_PROXY:-socks5://warp:1080}
-      GROK_REGISTER_DEFAULT_BROWSER_PROXY: ${GROK_REGISTER_DEFAULT_BROWSER_PROXY:-socks5://warp:1080}
+      GROK_REGISTER_DEFAULT_PROXY: ${GROK_REGISTER_DEFAULT_PROXY:-socks5://warp-proxy:1080}
+      GROK_REGISTER_DEFAULT_BROWSER_PROXY: ${GROK_REGISTER_DEFAULT_BROWSER_PROXY:-socks5://warp-proxy:1080}
       GROK_REGISTER_DEFAULT_TEMP_MAIL_PROVIDER: ${GROK_REGISTER_DEFAULT_TEMP_MAIL_PROVIDER:-}
       GROK_REGISTER_DEFAULT_TEMP_MAIL_API_BASE: ${GROK_REGISTER_DEFAULT_TEMP_MAIL_API_BASE:-}
       GROK_REGISTER_DEFAULT_TEMP_MAIL_ADMIN_EMAIL: ${GROK_REGISTER_DEFAULT_TEMP_MAIL_ADMIN_EMAIL:-}
@@ -102,4 +102,4 @@ services:
     restart: unless-stopped
     depends_on:
       - grok2api
-      - warp
+      - warp-proxy
