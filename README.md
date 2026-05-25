@@ -12,21 +12,65 @@
 
 ## 仓库模式
 
-这个仓库现在融合了两套能力：
+这个仓库同时提供两套能力：
 
 - `grok2api` 防封版本体：可单独作为 Grok OpenAI 兼容网关运行
 - `register stack`：批量注册执行器 + Web 控制台 + token 自动入池
 
-如果你只想跑 `grok2api`，继续用下面 README 里的原生 `docker-compose.yml` / `docker-compose.warp.yml` 即可。
+如果你只想跑 `grok2api`，继续使用下面 README 里的 `docker-compose.yml` 或 `docker-compose.warp.yml`。
 
-如果你想跑完整注册闭环，直接使用根目录新增的 `docker-compose.register.yml`：
+如果你想跑完整注册闭环，优先看下面这节“一体化注册部署”。
+
+## 一体化注册部署
+
+适用场景：
+
+- 你想通过 Web 控制台批量注册
+- 注册成功后自动把 `sso` 推进内置 `grok2api`
+- 需要内置的 `warp + privoxy + flaresolverr` 防封链路
+
+### 1. 拉代码
 
 ```bash
+git clone https://github.com/rrkistch/grok2api_register.git
+cd grok2api_register
 cp .env.example .env
+```
+
+### 2. 至少补齐这些环境变量
+
+```dotenv
+GROK2API_APP_KEY=replace-with-your-admin-password
+GROK_REGISTER_DEFAULT_API_TOKEN=replace-with-your-admin-password
+
+GROK_REGISTER_DEFAULT_TEMP_MAIL_PROVIDER=cloudmail
+GROK_REGISTER_DEFAULT_TEMP_MAIL_API_BASE=https://your-mail-api.example.com
+GROK_REGISTER_DEFAULT_TEMP_MAIL_ADMIN_EMAIL=admin@example.com
+GROK_REGISTER_DEFAULT_TEMP_MAIL_ADMIN_PASSWORD=replace-with-your-mail-password
+GROK_REGISTER_DEFAULT_TEMP_MAIL_DOMAIN=mail.example.com
+```
+
+说明：
+
+- `GROK_REGISTER_DEFAULT_API_TOKEN` 需要和 `GROK2API_APP_KEY` 保持一致
+- 如果你用 DuckMail，可以把 `TEMP_MAIL_PROVIDER` 留空，再按需填写 `TEMP_MAIL_API_BASE`
+- 首次部署建议先把 `GROK_REGISTER_DEFAULT_RUN_COUNT` 设成 `1` 或 `3`
+
+### 3. 启动完整栈
+
+```bash
 docker compose -f docker-compose.register.yml up -d --build
 ```
 
-启动后访问：
+这套栈会启动：
+
+- `warp`
+- `privoxy`
+- `flaresolverr`
+- `grok2api`
+- `console`
+
+### 4. 首次访问
 
 - `http://<你的服务器IP>:18600`：注册控制台
 - `http://<你的服务器IP>:8000/admin`：`grok2api` 防封版后台
@@ -34,6 +78,16 @@ docker compose -f docker-compose.register.yml up -d --build
 注册控制台默认会把成功拿到的 `sso` 推送到：
 
 - `http://grok2api:8000/admin/api/tokens`
+
+### 5. 推荐上线顺序
+
+1. 先登录 `http://<你的服务器IP>:8000/admin`
+2. 确认后台口令可用
+3. 打开 `http://<你的服务器IP>:18600`
+4. 先跑一次健康检查
+5. 先创建一个 `count=1` 的任务验证
+6. 确认邮箱、验证码、注册成功、`sso` 落地和 token 入池都正常
+7. 再逐步放量
 
 批量注册相关文件位于：
 
@@ -85,18 +139,19 @@ Grok2API 是一个基于 **FastAPI** 构建的 Grok 网关，将 Grok Web 能力
 
 ## 快速开始
 
-本项目提供两种部署方式，按需选择：
+本项目提供三种部署方式，按需选择：
 
 | 方式 | 说明 | 适用场景 |
 | :-- | :-- | :-- |
 | **标准版** | 仅 grok2api，直连 Grok | IP 干净、无 Cloudflare 拦截问题 |
 | **防封版** | grok2api + WARP + Privoxy + FlareSolverr | IP 被 Cloudflare 拦截、需要稳定访问 |
+| **注册闭环版** | register stack + grok2api + WARP + Privoxy + FlareSolverr | 需要批量注册、控制台和自动入池 |
 
 ### 方式一：标准版（Docker Compose）
 
 ```bash
-git clone https://github.com/jiujiu532/grok2api
-cd grok2api/grok2api-main/grok2api-main
+git clone https://github.com/rrkistch/grok2api_register.git
+cd grok2api_register
 cp .env.example .env
 docker compose up -d
 ```
@@ -114,8 +169,8 @@ docker compose logs -f grok2api
 > **前置要求**：服务器需支持 `NET_ADMIN` + `SYS_MODULE` 权限（KVM/XEN 虚拟化均支持，OpenVZ/LXC 不支持）。
 
 ```bash
-git clone https://github.com/jiujiu532/grok2api
-cd grok2api/grok2api-main/grok2api-main
+git clone https://github.com/rrkistch/grok2api_register.git
+cd grok2api_register
 docker compose -f docker-compose.warp.yml up -d
 ```
 
@@ -130,7 +185,18 @@ docker compose -f docker-compose.warp.yml up -d
 
 启动后代理配置已自动完成，进入 Admin 后台添加账号即可使用。
 
-### 方式三：Docker 单容器
+### 方式三：注册闭环版（控制台 + 注册执行器）
+
+```bash
+git clone https://github.com/rrkistch/grok2api_register.git
+cd grok2api_register
+cp .env.example .env
+docker compose -f docker-compose.register.yml up -d --build
+```
+
+> 这套 Compose 会同时启动注册控制台、浏览器运行时和防封版 `grok2api`，适合需要批量注册并自动入池的场景。
+
+### 方式四：Docker 单容器
 
 ```bash
 docker run -d \
@@ -160,7 +226,7 @@ docker run -d `
   ghcr.io/jiujiu532/grok2api:latest
 ```
 
-### 方式四：本地源码部署
+### 方式五：本地源码部署
 
 前置：Python 3.13+、[uv](https://docs.astral.sh/uv/getting-started/installation/)。
 
